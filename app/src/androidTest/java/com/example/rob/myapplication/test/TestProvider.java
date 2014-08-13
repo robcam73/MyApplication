@@ -1,8 +1,10 @@
 package com.example.rob.myapplication.test;
 
+import android.annotation.TargetApi;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Build;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -19,19 +21,31 @@ import java.util.Set;
 public class TestProvider extends AndroidTestCase {
     public static final String LOG_TAG = TestProvider.class.getSimpleName();
 
+    static public String TEST_CITY_NAME = "North Pole";
+    static public String TEST_LOCATION = "99705";
+    static public String TEST_DATE = "20141205";
+
     public void testDeleteDb() throws Throwable {
         mContext.deleteDatabase(WeatherDbHelper.DATABASE_NAME);
     }
 
+    // The target api annotation is needed for the call to keySet -- we wouldn't want
+    // to use this in our app, but in a test it's fine to assume a higher target.
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+    void addAllContentValues(ContentValues destination, ContentValues source) {
+        for (String key : source.keySet()) {
+            destination.put(key, source.getAsString(key));
+        }
+    }
+
     public ContentValues getLocationContentValues(){
-        String testLocationSetting = "99705";
         double testLatitude = 64.772;
         double testLongitude = -147.355;
 
         ContentValues values = new ContentValues();
 
         values.put(LocationEntry.COLUMN_CITY_NAME, TEST_CITY_NAME);
-        values.put(LocationEntry.COLUMN_LOCATION_SETTING, testLocationSetting);
+        values.put(LocationEntry.COLUMN_LOCATION_SETTING, TEST_LOCATION);
         values.put(LocationEntry.COLUMN_COORD_LAT, testLatitude);
         values.put(LocationEntry.COLUMN_COORD_LONG, testLongitude);
 
@@ -86,8 +100,6 @@ public class TestProvider extends AndroidTestCase {
         assertEquals(LocationEntry.CONTENT_ITEM_TYPE, type);
     }
 
-    static public String TEST_CITY_NAME = "North Pole";
-
     static public void validateCursor(ContentValues expectedValues, Cursor valueCursor){
         Set<Map.Entry<String, Object>> entries = expectedValues.valueSet();
 
@@ -107,9 +119,9 @@ public class TestProvider extends AndroidTestCase {
 
 
         long locationRowId;
-        ContentValues values = getLocationContentValues();
+        ContentValues testValues = getLocationContentValues();
 
-        locationRowId = db.insert(LocationEntry.TABLE_NAME, null, values);
+        locationRowId = db.insert(LocationEntry.TABLE_NAME, null, testValues);
         assertTrue(locationRowId != -1);
         Log.d(LOG_TAG, "New row id:" + locationRowId );
 
@@ -121,7 +133,7 @@ public class TestProvider extends AndroidTestCase {
         );
 
         if (cursor.moveToFirst()){
-            validateCursor(values, cursor);
+            validateCursor(testValues, cursor);
         }
         else
         {
@@ -138,7 +150,7 @@ public class TestProvider extends AndroidTestCase {
         );
 
         if (cursor.moveToFirst()) {
-            TestDb.validateCursor(values, cursor);
+            TestDb.validateCursor(cursor, testValues);
         }
 
         long weatherRowId;
@@ -159,6 +171,41 @@ public class TestProvider extends AndroidTestCase {
         {
             fail("No values returned");
         }
+
+        // Add the location values in with the weather data so that we can make
+        // sure that the join worked and we actually get all the values back
+        addAllContentValues(weatherValues, testValues);
+
+        // Get the joined Weather and Location data
+        weatherCursor = mContext.getContentResolver().query(
+                WeatherEntry.buildWeatherLocation(TEST_LOCATION),
+                null, // leaving "columns" null just returns all the columns.
+                null, // cols for "where" clause
+                null, // values for "where" clause
+                null  // sort order
+        );
+        TestDb.validateCursor(weatherCursor, weatherValues);
+
+        // Get the joined Weather and Location data with a start date
+        weatherCursor = mContext.getContentResolver().query(
+                WeatherEntry.buildWeatherLocationWithStartDate(
+                        TEST_LOCATION, TEST_DATE),
+                null, // leaving "columns" null just returns all the columns.
+                null, // cols for "where" clause
+                null, // values for "where" clause
+                null  // sort order
+        );
+        TestDb.validateCursor(weatherCursor, weatherValues);
+
+        // Get the joined Weather data for a specific date
+        weatherCursor = mContext.getContentResolver().query(
+                WeatherEntry.buildWeatherLocationWithDate(TEST_LOCATION, TEST_DATE),
+                null,
+                null,
+                null,
+                null
+        );
+        TestDb.validateCursor(weatherCursor, weatherValues);
 
         dbHelper.close();
     }

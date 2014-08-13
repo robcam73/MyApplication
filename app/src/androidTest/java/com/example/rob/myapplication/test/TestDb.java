@@ -61,7 +61,7 @@ public class TestDb extends AndroidTestCase {
 
     static public String TEST_CITY_NAME = "North Pole";
 
-    static public void validateCursor(ContentValues expectedValues, Cursor valueCursor){
+    static public void validateCursor(Cursor valueCursor, ContentValues expectedValues){
         Set<Map.Entry<String, Object>> entries = expectedValues.valueSet();
 
         for (Map.Entry<String, Object> entry : entries){
@@ -97,7 +97,7 @@ public class TestDb extends AndroidTestCase {
         );
 
         if (cursor.moveToFirst()){
-            validateCursor(values, cursor);
+            validateCursor(cursor, values);
         }
         else
         {
@@ -121,7 +121,7 @@ public class TestDb extends AndroidTestCase {
         );
 
         if (cursor.moveToFirst()){
-            validateCursor(weatherValues, cursor);
+            validateCursor(cursor, weatherValues);
         }
         else
         {
